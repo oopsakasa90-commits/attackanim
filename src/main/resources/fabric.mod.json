@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "attackanim",
+  "version": "${version}",
+  "name": "Third-Person Attack Animation",
+  "description": "Thay animation vung tay bằng đòn chém 3 pha (giơ - chém - thu về) khi nhìn ở góc thứ 3.",
+  "authors": ["You"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.example.attackanim.AttackAnimClient"]
+  },
+  "mixins": [
+    { "config": "attackanim.mixins.json", "environment": "client" }
+  ],
+  "depends": {
+    "fabricloader": ">=0.17.0",
+    "minecraft": "~1.21.11",
+    "java": ">=21"
+  }
+}
