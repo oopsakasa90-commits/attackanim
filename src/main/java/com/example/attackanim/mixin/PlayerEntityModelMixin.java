@@ -67,10 +67,10 @@ public abstract class PlayerEntityModelMixin extends BipedEntityModel<PlayerEnti
 			this.head.yaw -= bodyYaw * 0.5F;
 
 			// Giữ vai bám theo thân (giống cách vanilla làm)
-			this.rightArm.pivotZ = MathHelper.sin(bodyYaw) * 5.0F;
-			this.rightArm.pivotX = -MathHelper.cos(bodyYaw) * 5.0F;
-			this.leftArm.pivotZ = -MathHelper.sin(bodyYaw) * 5.0F;
-			this.leftArm.pivotX = MathHelper.cos(bodyYaw) * 5.0F;
+			this.rightArm.originZ = MathHelper.sin(bodyYaw) * 5.0F;
+			this.rightArm.originX = -MathHelper.cos(bodyYaw) * 5.0F;
+			this.leftArm.originZ = -MathHelper.sin(bodyYaw) * 5.0F;
+			this.leftArm.originX = MathHelper.cos(bodyYaw) * 5.0F;
 		}
 
 		main.pitch = pitch;
