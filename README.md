@@ -27,6 +27,7 @@ File `config/attackanim.json` được tạo tự động:
 |-------------|----------|---------------------------------|
 | `enabled`   | `true`   | Bật/tắt animation               |
 | `intensity` | `1.0`    | Độ mạnh chuyển động (0.0 - 2.0) |
+| `swingDurationMs` | `520` | Thời gian một đòn chém (ms) |
 | `bodyTwist` | `true`   | Xoay thân khi chém              |
 | `legStep`   | `true`   | Bước chân khi chém              |
 
@@ -41,20 +42,27 @@ và biên độ góc của từng pha.
 - Dự án dùng Yarn mappings (đã được xác minh có bản cho 1.21.11). Fabric đã ngừng hỗ trợ chính thức Yarn,
   nên nếu muốn chuyển sang Mojang mappings hãy dùng `./gradlew migrateMappings`.
 
-## Phiên bản 1.1: combo đánh và dáng cầm kiếm
+## Phiên bản 1.2: combo đánh, dáng cầm kiếm, xoay kiếm ở cổ tay
 
 Chỉ áp dụng khi **tay chính cầm kiếm** (đổi từ khóa vũ khí trong `weaponKeywords`).
 
-**Dáng đứng (không đánh)**
-- Chỉ cầm kiếm tay chính: kiếm nghiêng lên chĩa về trước, thân xoay nghiêng, tay phụ cong nhẹ để sau lưng.
-- Cả hai tay có item: thủ thế song kiếm, hai tay đưa ra trước, mũi kiếm chéo nhau, chân dang rộng.
+**Chế độ theo tay phụ**
+- Tay phụ trống: combo 4 đòn, tay phụ cong nhẹ để sau lưng.
+- Tay phụ cầm item khác (không phải kiếm): combo 4 đòn như trên, tay phụ giữ ở hông sau như cầm bao kiếm.
+- Tay phụ cũng cầm kiếm: thủ thế song kiếm và combo 5 đòn.
 
 **Combo một tay** (lặp lại): chém ngang phải→trái, chém ngang trái→phải, đâm thẳng, bổ từ trên xuống.
 
-**Combo hai tay** (kiếm tay chính + item bất kỳ tay phụ): tay chính chém chéo từ trên phải xuống dưới trái,
-tay phụ chém chéo từ trên trái xuống dưới phải, tay chính chém ngang phải→trái, tay phụ chém ngang trái→phải,
-cuối cùng hai tay chụm về trước rồi đánh ngang ra hai bên.
+**Combo song kiếm**: tay chính chém chéo từ trên phải xuống dưới trái, tay phụ chém chéo từ trên trái xuống dưới phải,
+tay chính chém ngang phải→trái, tay phụ chém ngang trái→phải, cuối cùng hai tay chụm về trước rồi đánh ngang ra hai bên.
 Đòn của tay phụ chỉ là hiệu ứng hình ảnh, sát thương vẫn tính từ tay chính như game gốc.
+
+**Xoay kiếm**: thanh kiếm xoay riêng quanh cổ tay (gập + xoay theo trục cánh tay), nối dài cánh tay lúc chém
+để cả cánh tay và lưỡi kiếm quét thành một cung dài, lưỡi kiếm xoay theo chiều chém. Thân đi trước, cánh tay theo sau,
+cổ tay chạy muộn nhất cho cú chém mượt. Nếu `latest.log` có dòng `Wrist hook active` nghĩa là phần xoay kiếm đã chạy.
+
+**Tốc độ**: mỗi đòn chạy theo đồng hồ riêng, mặc định 520 ms (game gốc khoảng 300 ms), có đoạn khựng nhẹ lúc trúng đòn.
+Đòn bổ nặng và đòn song kiếm cuối còn chậm hơn một chút. Chỉnh bằng `swingDurationMs`.
 
 Combo quay về đòn đầu nếu `comboResetMs` (mặc định 1200 ms) không đánh. Người thuận tay trái được lật gương tự động.
 
