@@ -9,20 +9,28 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Cấu hình lưu tại config/attackanim.json (tự tạo lần chạy đầu tiên). */
 public final class AttackAnimConfig {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static AttackAnimConfig instance = new AttackAnimConfig();
 
-	/** Bật/tắt animation chém. */
+	/** Bật/tắt toàn bộ mod. */
 	public boolean enabled = true;
-	/** Độ mạnh của chuyển động (0.0 - 2.0). */
+	/** Độ mạnh của chuyển động đòn đánh (0.0 - 2.0). */
 	public float intensity = 1.0F;
-	/** Xoay thân khi chém. */
-	public boolean bodyTwist = true;
-	/** Bước chân khi chém. */
+	/** Áp dụng dáng đứng khi cầm kiếm (không đánh). */
+	public boolean stance = true;
+	/** Bước chân/lao người theo đòn đánh và dáng đứng (khi đứng yên). */
 	public boolean legStep = true;
+	/** Xoay thân khi đánh. */
+	public boolean bodyTwist = true;
+	/** Sau bao lâu (mili giây) không đánh thì combo quay về đòn đầu tiên. */
+	public int comboResetMs = 1200;
+	/** Item nào được coi là vũ khí: tên trong registry chứa một trong các từ này (vd "sword", "axe", "mace"). */
+	public List<String> weaponKeywords = new ArrayList<>(List.of("sword"));
 
 	public static AttackAnimConfig get() {
 		return instance;
@@ -33,7 +41,12 @@ public final class AttackAnimConfig {
 		if (Files.exists(path)) {
 			try (Reader reader = Files.newBufferedReader(path)) {
 				AttackAnimConfig loaded = GSON.fromJson(reader, AttackAnimConfig.class);
-				if (loaded != null) instance = loaded;
+				if (loaded != null) {
+					if (loaded.weaponKeywords == null || loaded.weaponKeywords.isEmpty()) {
+						loaded.weaponKeywords = new ArrayList<>(List.of("sword"));
+					}
+					instance = loaded;
+				}
 			} catch (Exception e) {
 				AttackAnimClient.LOGGER.warn("Không đọc được attackanim.json, dùng mặc định", e);
 			}

@@ -40,3 +40,28 @@ và biên độ góc của từng pha.
 - Animation áp dụng cho mọi cú vung tay (đánh, đào, đặt block), vì game dùng chung một tiến trình vung tay.
 - Dự án dùng Yarn mappings (đã được xác minh có bản cho 1.21.11). Fabric đã ngừng hỗ trợ chính thức Yarn,
   nên nếu muốn chuyển sang Mojang mappings hãy dùng `./gradlew migrateMappings`.
+
+## Phiên bản 1.1: combo đánh và dáng cầm kiếm
+
+Chỉ áp dụng khi **tay chính cầm kiếm** (đổi từ khóa vũ khí trong `weaponKeywords`).
+
+**Dáng đứng (không đánh)**
+- Chỉ cầm kiếm tay chính: kiếm nghiêng lên chĩa về trước, thân xoay nghiêng, tay phụ cong nhẹ để sau lưng.
+- Cả hai tay có item: thủ thế song kiếm, hai tay đưa ra trước, mũi kiếm chéo nhau, chân dang rộng.
+
+**Combo một tay** (lặp lại): chém ngang phải→trái, chém ngang trái→phải, đâm thẳng, bổ từ trên xuống.
+
+**Combo hai tay** (kiếm tay chính + item bất kỳ tay phụ): tay chính chém chéo từ trên phải xuống dưới trái,
+tay phụ chém chéo từ trên trái xuống dưới phải, tay chính chém ngang phải→trái, tay phụ chém ngang trái→phải,
+cuối cùng hai tay chụm về trước rồi đánh ngang ra hai bên.
+Đòn của tay phụ chỉ là hiệu ứng hình ảnh, sát thương vẫn tính từ tay chính như game gốc.
+
+Combo quay về đòn đầu nếu `comboResetMs` (mặc định 1200 ms) không đánh. Người thuận tay trái được lật gương tự động.
+
+Không kết hợp được với resource pack Fresh Animations (Entity Model Features) vì pack đó thay luôn
+animation của người chơi. Chọn dùng một trong hai.
+
+## Ghi chú nguồn tham khảo
+
+Phối hợp thân/tay/chân khi vung được tham khảo từ resource pack Fresh Animations Player Add-on của FreshLX
+(chỉ tham khảo ý tưởng, không sao chép tài nguyên). Combo và dáng đứng do dự án này tự viết.

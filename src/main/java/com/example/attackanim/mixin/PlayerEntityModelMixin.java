@@ -1,10 +1,17 @@
 package com.example.attackanim.mixin;
 
 import com.example.attackanim.AttackAnimConfig;
+import com.example.attackanim.anim.AnimState;
+import com.example.attackanim.anim.Combos;
+import com.example.attackanim.anim.Pose;
+import com.example.attackanim.anim.Strike;
 import net.minecraft.client.model.ModelPart;
 import net.minecraft.client.render.entity.model.BipedEntityModel;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
+import net.minecraft.entity.EntityPose;
+import net.minecraft.item.ItemStack;
+import net.minecraft.registry.Registries;
 import net.minecraft.util.Arm;
 import net.minecraft.util.math.MathHelper;
 import org.spongepowered.asm.mixin.Mixin;
@@ -13,9 +20,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Thay animation vung tay khi tấn công bằng một đòn chém 3 pha:
- * giơ cao (wind-up) -> chém chéo xuống (slash) -> thu về (recover),
- * kèm xoay thân và bước chân. Hiển thị rõ nhất ở góc nhìn thứ 3.
+ * Dáng đứng + combo đánh khi cầm kiếm (xem {@link Combos}).
+ * - Chỉ tay chính cầm kiếm: combo 4 đòn.
+ * - Tay phụ cũng cầm item: combo 5 đòn song kiếm (đòn của tay phụ chỉ là hiệu ứng hình ảnh).
  */
 @Mixin(PlayerEntityModel.class)
 public abstract class PlayerEntityModelMixin extends BipedEntityModel<PlayerEntityRenderState> {
@@ -29,72 +36,95 @@ public abstract class PlayerEntityModelMixin extends BipedEntityModel<PlayerEnti
 		method = "setAngles(Lnet/minecraft/client/render/entity/state/PlayerEntityRenderState;)V",
 		at = @At("TAIL")
 	)
-	private void attackanim$slash(PlayerEntityRenderState state, CallbackInfo ci) {
+	private void attackanim$apply(PlayerEntityRenderState state, CallbackInfo ci) {
 		AttackAnimConfig cfg = AttackAnimConfig.get();
 		if (!cfg.enabled) return;
 
-		float p = state.handSwingProgress;
-		if (p <= 0.0F || p >= 1.0F) return;
+		// Chỉ áp dụng khi đứng/đi bình thường (không bơi, bay, ngủ, ngồi xe, ngồi xổm, đang dùng item)
+		if (state.pose != EntityPose.STANDING) return;
+		if (state.hasVehicle || state.isGliding || state.isSwimming || state.isUsingItem) return;
+		if (state.leaningPitch > 0.0F) return;
 
-		float k = MathHelper.clamp(cfg.intensity, 0.0F, 2.0F);
-		boolean right = state.mainArm == Arm.RIGHT;
-		float side = right ? 1.0F : -1.0F;
+		boolean rightHanded = state.mainArm == Arm.RIGHT;
+		ItemStack mainStack = rightHanded ? state.rightHandItem : state.leftHandItem;
+		ItemStack offStack = rightHanded ? state.leftHandItem : state.rightHandItem;
+		if (!attackanim$isWeapon(mainStack, cfg)) return;
 
-		ModelPart main = right ? this.rightArm : this.leftArm;
-		ModelPart off = right ? this.leftArm : this.rightArm;
-		ModelPart frontLeg = right ? this.leftLeg : this.rightLeg;
-		ModelPart backLeg = right ? this.rightLeg : this.leftLeg;
+		BipedEntityModel.ArmPose offPose = rightHanded ? state.leftArmPose : state.rightArmPose;
+		if (offPose != BipedEntityModel.ArmPose.EMPTY && offPose != BipedEntityModel.ArmPose.ITEM) return;
 
-		// Ba pha của đòn chém (tổng = 1.0)
-		float wind = MathHelper.clamp(p / 0.30F, 0.0F, 1.0F);            // 0.00 - 0.30: giơ lên
-		float slash = MathHelper.clamp((p - 0.30F) / 0.25F, 0.0F, 1.0F); // 0.30 - 0.55: chém xuống
-		float rec = MathHelper.clamp((p - 0.55F) / 0.45F, 0.0F, 1.0F);   // 0.55 - 1.00: thu về
+		float progress = state.handSwingProgress;
+		// Đang vung tay PHỤ (ví dụ đặt block bằng tay trái): để game tự xử lý
+		if (progress > 0.0F && state.preferredArm != state.mainArm) return;
 
-		float eWind = easeOut(wind);
-		float eSlash = easeIn(slash);
-		float eRec = easeOut(rec);
+		boolean dual = !offStack.isEmpty();
+		long now = System.nanoTime();
+		int step = AnimState.TRACKER.update(state.id, progress, now, cfg.comboResetMs * 1_000_000L);
 
-		// Tay chính: pitch 0 -> -2.6 (giơ cao) -> -0.3 (chém tới trước) -> 0
-		float pitch = (-2.6F * eWind + 2.3F * eSlash + 0.3F * eRec) * k;
-		float yaw = (-0.5F * eWind + 1.4F * eSlash - 0.9F * eRec) * k;
-		float roll = (0.35F * eWind - 0.5F * eSlash + 0.15F * eRec) * k;
-
-		// Xoay thân (ngược chiều khi giơ, quét theo khi chém)
-		float bodyYaw = 0.0F;
-		if (cfg.bodyTwist) {
-			bodyYaw = side * (-0.45F * eWind + 1.0F * eSlash - 0.55F * eRec) * k;
-			this.body.yaw = bodyYaw;
-			this.head.yaw -= bodyYaw * 0.5F;
-
-			// Giữ vai bám theo thân (giống cách vanilla làm)
-			this.rightArm.originZ = MathHelper.sin(bodyYaw) * 5.0F;
-			this.rightArm.originX = -MathHelper.cos(bodyYaw) * 5.0F;
-			this.leftArm.originZ = -MathHelper.sin(bodyYaw) * 5.0F;
-			this.leftArm.originX = MathHelper.cos(bodyYaw) * 5.0F;
+		Pose stance = dual ? Combos.DUAL_STANCE : Combos.SINGLE_STANCE;
+		Pose pose = AnimState.POSE;
+		if (progress > 0.0F) {
+			Strike[] combo = dual ? Combos.DUAL : Combos.SINGLE;
+			combo[step % combo.length].sample(progress, pose);
+			pose.scaleFrom(stance, MathHelper.clamp(cfg.intensity, 0.0F, 2.0F));
+		} else {
+			if (!cfg.stance) return;
+			System.arraycopy(stance.v, 0, pose.v, 0, Pose.COUNT);
 		}
 
-		main.pitch = pitch;
-		main.yaw = side * yaw + bodyYaw;
-		main.roll = side * roll;
+		// Thêm nhịp thở nhẹ khi đứng yên
+		if (progress <= 0.0F) {
+			float breathe = MathHelper.sin(state.age * 0.09F) * 0.025F;
+			pose.v[Pose.RA_P] += breathe;
+			pose.v[Pose.LA_P] -= breathe;
+		}
 
-		// Tay phụ giữ thăng bằng
-		off.pitch = (0.4F * (eWind - eRec) - 0.3F * eSlash) * k + bodyYaw;
-		off.yaw = bodyYaw;
-		off.roll = -side * 0.25F * (eWind + eSlash) * (1.0F - eRec) * k;
+		Pose applied = rightHanded ? pose : pose.mirrored();
+		float legWeight = cfg.legStep ? MathHelper.clamp(1.0F - state.limbSwingAmplitude * 3.0F, 0.0F, 1.0F) : 0.0F;
+		attackanim$applyPose(applied, cfg.bodyTwist, legWeight);
+	}
 
-		// Bước chân theo nhịp chém
-		if (cfg.legStep) {
-			float step = eSlash * (1.0F - eRec);
-			frontLeg.pitch = -0.6F * step * k;
-			backLeg.pitch = 0.5F * step * k;
+	private void attackanim$applyPose(Pose p, boolean bodyTwist, float legWeight) {
+		float[] v = p.v;
+		float bodyYaw = bodyTwist ? v[Pose.B_Y] : 0.0F;
+
+		this.body.pitch = v[Pose.B_P];
+		this.body.yaw = bodyYaw;
+		this.body.roll = v[Pose.B_R];
+
+		// Đầu giữ hướng nhìn, bù lại phần thân xoay/chồm
+		this.head.yaw -= bodyYaw;
+		this.head.pitch -= v[Pose.B_P] * 0.6F;
+
+		// Vai bám theo thân khi thân xoay (giống cách game làm)
+		this.rightArm.originZ = MathHelper.sin(bodyYaw) * 5.0F + v[Pose.RA_OZ];
+		this.rightArm.originX = -MathHelper.cos(bodyYaw) * 5.0F;
+		this.rightArm.originY = 2.0F + v[Pose.RA_OY];
+		this.leftArm.originZ = -MathHelper.sin(bodyYaw) * 5.0F + v[Pose.LA_OZ];
+		this.leftArm.originX = MathHelper.cos(bodyYaw) * 5.0F;
+		this.leftArm.originY = 2.0F + v[Pose.LA_OY];
+
+		this.rightArm.pitch = v[Pose.RA_P] + v[Pose.B_P];
+		this.rightArm.yaw = v[Pose.RA_Y] + bodyYaw;
+		this.rightArm.roll = v[Pose.RA_R];
+		this.leftArm.pitch = v[Pose.LA_P] + v[Pose.B_P];
+		this.leftArm.yaw = v[Pose.LA_Y] + bodyYaw;
+		this.leftArm.roll = v[Pose.LA_R];
+
+		if (legWeight > 0.0F) {
+			this.rightLeg.pitch += v[Pose.RL_P] * legWeight;
+			this.leftLeg.pitch += v[Pose.LL_P] * legWeight;
+			this.rightLeg.roll += v[Pose.RL_R] * legWeight;
+			this.leftLeg.roll += v[Pose.LL_R] * legWeight;
 		}
 	}
 
-	private static float easeOut(float t) {
-		return 1.0F - (1.0F - t) * (1.0F - t);
-	}
-
-	private static float easeIn(float t) {
-		return t * t;
+	private static boolean attackanim$isWeapon(ItemStack stack, AttackAnimConfig cfg) {
+		if (stack.isEmpty()) return false;
+		String path = Registries.ITEM.getId(stack.getItem()).getPath();
+		for (String keyword : cfg.weaponKeywords) {
+			if (keyword != null && !keyword.isEmpty() && path.contains(keyword)) return true;
+		}
+		return false;
 	}
 }
